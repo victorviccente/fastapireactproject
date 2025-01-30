@@ -1,57 +1,82 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List
-from pydantic import BaseModel
 import os
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+import json
 import logging
+import anthropic
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import List, Optional
+from dotenv import load_dotenv
 
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
+
+# Configuração de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="FastAPI + React App")
 
+# Middleware para logging de requisições
 @app.middleware("http")
 async def log_requests(request, call_next):
     logger.info(f"Requisição recebida: {request.method} {request.url}")
-    logger.info(f"Cabeçalhos: {request.headers}")
-    response = await call_next(request)
-    return response
+    logger.info(f"Headers: {request.headers}")
+    try:
+        response = await call_next(request)
+        logger.info(f"Resposta enviada: Status {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"Erro na requisição: {str(e)}")
+        raise
 
-# Adiciona middleware de host confiável
+# Middleware para hosts confiáveis
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"]  # Em produção, especifique seus domínios reais
+    allowed_hosts=["*"]
 )
 
-# URLs permitidas para CORS
-# Configuração mais permissiva do CORS
+# Configuração do CORS
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://fastapi-backend-je9z.onrender.com",
     "https://fastapireactproject.vercel.app",
-    "http://fastapireactproject.vercel.app"  # Adicionando também a versão HTTP
+    "http://fastapireactproject.vercel.app"
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite todas as origens temporariamente
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Permite todos os métodos
-    allow_headers=["*"],  # Permite todos os headers
-    expose_headers=["*"]  # Expõe todos os headers
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
 )
 
-# Modelo de dados
+# Modelos Pydantic
 class Task(BaseModel):
     id: int
     title: str
     completed: bool
 
-# Dados de exemplo
+class ChatMessage(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    response: str
+    task: Optional[dict] = None
+
+# Cliente Anthropic
+api_key = os.getenv("ANTHROPIC_API_KEY")
+if not api_key:
+    raise ValueError("ANTHROPIC_API_KEY não está definida no ambiente")
+
+client = anthropic.Client(api_key=api_key)
+
+# Dados iniciais
 tasks = [
     {"id": 1, "title": "Aprender FastAPI", "completed": True},
     {"id": 2, "title": "Aprender React", "completed": False},
@@ -59,42 +84,122 @@ tasks = [
     {"id": 4, "title": "Ir a academia", "completed": True}
 ]
 
+@app.post("/api/chat")
+async def chat(message: ChatMessage):
+    try:
+        logger.info(f"Chat endpoint called with message: {message.message}")
+        
+        # Construindo o prompt
+        system_message = """Você é um assistente que ajuda a criar tarefas.
+        Quando identificar um pedido de criação de tarefa, defina o título com base na mensagem do usuário.
+        Por exemplo: Se o usuário disser "Preciso estudar Python", extraia "Estudar Python" como título."""
+
+        user_message = {
+            "role": "user",
+            "content": message.message
+        }
+
+        logger.info("Enviando requisição para Claude...")
+
+        # Chamada para a API do Claude
+        response = client.messages.create(
+            model="claude-3-opus-20240229",
+            max_tokens=1000,
+            temperature=0,
+            system=system_message,
+            messages=[user_message]
+        )
+
+        logger.info(f"Resposta recebida do Claude: {response}")
+
+        # Extraindo o texto da resposta
+        response_text = response.content[0].text.strip()
+        logger.info(f"Texto da resposta: {response_text}")
+
+        # Verificando se é um pedido de tarefa
+        is_task_request = any(keyword in message.message.lower() 
+                            for keyword in ["criar tarefa", "nova tarefa", "adicionar tarefa", "fazer tarefa"])
+
+        if is_task_request:
+            # Criando uma tarefa
+            task = {
+                "id": len(tasks) + 1,
+                "title": response_text,
+                "completed": False
+            }
+            tasks.append(task)
+            return ChatResponse(response=f"Claro! Criei uma tarefa: {response_text}", task=task)
+        else:
+            # Resposta normal
+            return ChatResponse(response=response_text)
+
+    except Exception as e:
+        logger.error(f"Erro no chat: {str(e)}")
+        logger.exception("Stack trace completo:")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e),
+                "message": "Erro ao processar mensagem no chat"
+            }
+        )
+
 @app.get("/")
 async def read_root():
     return {"status": "ok", "message": "FastAPI Backend is running"}
 
 @app.get("/api/tasks", response_model=List[Task])
 async def get_tasks():
+    logger.info("Buscando todas as tarefas")
     return tasks
-
-@app.get("/api/hello")
-async def hello():
-    return {"message": "Olá do FastAPI!"}
 
 @app.post("/api/tasks", response_model=Task)
 async def create_task(task: Task):
+    logger.info(f"Criando nova tarefa: {task.dict()}")
     tasks.append(task.dict())
     return task
 
 @app.put("/api/tasks/{task_id}", response_model=Task)
 async def update_task(task_id: int, task: Task):
+    logger.info(f"Atualizando tarefa {task_id}: {task.dict()}")
     for i, t in enumerate(tasks):
         if t["id"] == task_id:
             tasks[i] = task.dict()
             return task
-    return {"error": "Task não encontrada"}
+    raise HTTPException(status_code=404, detail="Task não encontrada")
 
 @app.delete("/api/tasks/{task_id}")
 async def delete_task(task_id: int):
+    logger.info(f"Deletando tarefa {task_id}")
     for i, task in enumerate(tasks):
         if task["id"] == task_id:
             del tasks[i]
             return {"message": "Task deletada com sucesso"}
-    return {"error": "Task não encontrada"}
+    raise HTTPException(status_code=404, detail="Task não encontrada")
 
+# Tratamento de exceções global
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
+    logger.error(f"HTTPException: {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
         content={"message": str(exc.detail)},
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    logger.error(f"Erro não tratado: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Erro interno do servidor"},
+    )
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 5009))
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port,
+        log_level="info"
     )

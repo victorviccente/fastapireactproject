@@ -1,16 +1,17 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    tailwindcss(),
+  ],
   server: {
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5009',
+        target: 'https://fastapi-backend-je9z.onrender.com',
         changeOrigin: true,
-        secure: false,
-        ws: true
+        secure: false
       }
     }
   }
