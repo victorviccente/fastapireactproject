@@ -9,7 +9,9 @@ app = FastAPI(title="FastAPI + React App")
 # URLs permitidas para CORS
 origins = [
     "http://localhost:3000",
-    "https://react-frontend.onrender.com",  # URL do frontend no Render
+    "http://localhost:5173",  # URL do Vite dev server
+    "https://react-frontend-oz9f.onrender.com/",  # URL do frontend no Render
+    "https://fastapi-backend-je9z.onrender.com"  # URL do seu backend no Render
 ]
 
 app.add_middleware(

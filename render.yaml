@@ -25,4 +25,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://fastapi-backend.onrender.com
+        value: https://fastapi-backend-je9z.onrender.com
