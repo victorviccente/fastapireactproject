@@ -31,7 +31,7 @@ origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://fastapi-backend-je9z.onrender.com",
-    "https://seu-app.vercel.app",  # Você vai substituir isso com sua URL do Vercel
+    "https://fastapireactproject.vercel.app",  # Você vai substituir isso com sua URL do Vercel
     "https://*.vercel.app"  # Permite todos os subdomínios do Vercel durante o desenvolvimento
 ]
 app.add_middleware(
