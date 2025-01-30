@@ -1,0 +1,42 @@
+/* src/App.css */
+.app {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1 {
+  color: #333;
+  text-align: center;
+}
+
+.message-box {
+  background-color: #e8f5e9;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.tasks-container {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.task-item.completed span:first-child {
+  text-decoration: line-through;
+  color: #666;
+}
+
+h2 {
+  color: #444;
+  margin-bottom: 15px;
+}
