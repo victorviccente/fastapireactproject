@@ -29,11 +29,11 @@ app.add_middleware(
 # URLs permitidas para CORS
 origins = [
     "http://localhost:3000",
-    "http://localhost:5173",  # URL do Vite dev server
-    "https://react-frontend-oz9f.onrender.com",  # URL do frontend no Render
-    "https://fastapi-backend-je9z.onrender.com"  # URL do seu backend no Render
+    "http://localhost:5173",
+    "https://fastapi-backend-je9z.onrender.com",
+    "https://seu-app.vercel.app",  # Você vai substituir isso com sua URL do Vercel
+    "https://*.vercel.app"  # Permite todos os subdomínios do Vercel durante o desenvolvimento
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
