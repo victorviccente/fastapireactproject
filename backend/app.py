@@ -27,19 +27,22 @@ app.add_middleware(
 )
 
 # URLs permitidas para CORS
+# Configuração mais permissiva do CORS
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "https://fastapi-backend-je9z.onrender.com",
-    "https://fastapireactproject.vercel.app",  # Você vai substituir isso com sua URL do Vercel
-    "https://*.vercel.app"  # Permite todos os subdomínios do Vercel durante o desenvolvimento
+    "https://fastapireactproject.vercel.app",
+    "http://fastapireactproject.vercel.app"  # Adicionando também a versão HTTP
 ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Permite todas as origens temporariamente
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Permite todos os métodos
+    allow_headers=["*"],  # Permite todos os headers
+    expose_headers=["*"]  # Expõe todos os headers
 )
 
 # Modelo de dados
