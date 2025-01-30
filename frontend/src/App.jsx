@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 
 const API_URL = import.meta.env.PROD 
-  ? 'https://fastapi-backend-je9z.onrender.com/'  // URL de produção
+  ? 'https://fastapi-backend-je9z.onrender.com'  // URL de produção
   : 'http://localhost:5009'                 // URL de desenvolvimento
 
 function App() {

@@ -3,14 +3,34 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from pydantic import BaseModel
 import os
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="FastAPI + React App")
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    logger.info(f"Requisição recebida: {request.method} {request.url}")
+    logger.info(f"Cabeçalhos: {request.headers}")
+    response = await call_next(request)
+    return response
+
+# Adiciona middleware de host confiável
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]  # Em produção, especifique seus domínios reais
+)
 
 # URLs permitidas para CORS
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",  # URL do Vite dev server
-    "https://react-frontend-oz9f.onrender.com/",  # URL do frontend no Render
+    "https://react-frontend-oz9f.onrender.com",  # URL do frontend no Render
     "https://fastapi-backend-je9z.onrender.com"  # URL do seu backend no Render
 ]
 
@@ -67,3 +87,10 @@ async def delete_task(task_id: int):
             del tasks[i]
             return {"message": "Task deletada com sucesso"}
     return {"error": "Task não encontrada"}
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"message": str(exc.detail)},
+    )
