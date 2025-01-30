@@ -56,6 +56,7 @@ tasks = [
     {"id": 1, "title": "Aprender FastAPI", "completed": True},
     {"id": 2, "title": "Aprender React", "completed": False},
     {"id": 3, "title": "Fazer Deploy no Render", "completed": False}
+    {"id": 4, "title": "Ir a academia", "completed": True}
 ]
 
 @app.get("/")

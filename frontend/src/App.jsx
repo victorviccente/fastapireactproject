@@ -76,7 +76,7 @@ function App() {
 
   return (
     <div className="app">
-      <h1>FastAPI + React Todo App</h1>
+      <h1>Controle de Tarefas</h1>
       
       {error && (
         <div className="error">
