@@ -41,7 +41,7 @@ app.add_middleware(
 # Configuração do CORS
 origins = [
     "http://localhost:3000",
-    "http://localhost:5173",
+    "http://localhost:5173", 
     "https://fastapi-backend-je9z.onrender.com",
     "https://fastapireactproject.vercel.app",
     "http://fastapireactproject.vercel.app"
@@ -62,12 +62,15 @@ class Task(BaseModel):
     title: str
     completed: bool
 
+class TaskList(BaseModel):
+    tasks: List[str]
+
 class ChatMessage(BaseModel):
     message: str
 
 class ChatResponse(BaseModel):
     response: str
-    task: Optional[dict] = None
+    tasks: Optional[List[dict]] = None
 
 # Cliente Anthropic
 api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -81,7 +84,8 @@ tasks = [
     {"id": 1, "title": "Aprender FastAPI", "completed": True},
     {"id": 2, "title": "Aprender React", "completed": False},
     {"id": 3, "title": "Fazer Deploy no Render", "completed": False},
-    {"id": 4, "title": "Ir a academia", "completed": True}
+    {"id": 4, "title": "Ir a academia", "completed": True},
+    {"id": 5, "title": "Ir ao Shopping", "completed": True},
 ]
 
 @app.post("/api/chat")
@@ -91,8 +95,11 @@ async def chat(message: ChatMessage):
         
         # Construindo o prompt
         system_message = """Você é um assistente que ajuda a criar tarefas.
-        Quando identificar um pedido de criação de tarefa, defina o título com base na mensagem do usuário.
-        Por exemplo: Se o usuário disser "Preciso estudar Python", extraia "Estudar Python" como título."""
+        Quando identificar um pedido de criação de tarefas, extraia os títulos com base na mensagem do usuário.
+        Se houver múltiplas tarefas, liste uma por linha.
+        Exemplo de resposta para "Preciso estudar Python e fazer exercícios":
+        Estudar Python
+        Fazer exercícios"""
 
         user_message = {
             "role": "user",
@@ -112,26 +119,34 @@ async def chat(message: ChatMessage):
 
         logger.info(f"Resposta recebida do Claude: {response}")
 
-        # Extraindo o texto da resposta
-        response_text = response.content[0].text.strip()
-        logger.info(f"Texto da resposta: {response_text}")
-
-        # Verificando se é um pedido de tarefa
-        is_task_request = any(keyword in message.message.lower() 
-                            for keyword in ["criar tarefa", "nova tarefa", "adicionar tarefa", "fazer tarefa"])
-
-        if is_task_request:
-            # Criando uma tarefa
+        # Processando múltiplas tarefas
+        response_lines = [line.strip() for line in response.content[0].text.split('\n') if line.strip()]
+        created_tasks = []
+        
+        for line in response_lines:
             task = {
                 "id": len(tasks) + 1,
-                "title": response_text,
+                "title": line,
                 "completed": False
             }
             tasks.append(task)
-            return ChatResponse(response=f"Claro! Criei uma tarefa: {response_text}", task=task)
+            created_tasks.append(task)
+
+        logger.info(f"Tarefas criadas: {len(created_tasks)}")
+
+        # Verificando se é um pedido de tarefa
+        is_task_request = any(keyword in message.message.lower() 
+                            for keyword in ["criar tarefa", "nova tarefa", "adicionar tarefa", "fazer tarefa", "lista de tarefas"])
+
+        if is_task_request:
+            if len(created_tasks) > 1:
+                response_text = f"✨ Criei {len(created_tasks)} tarefas:\n" + "\n".join([f"- {task['title']}" for task in created_tasks])
+            else:
+                response_text = f"✨ Tarefa criada: {created_tasks[0]['title']}" if created_tasks else "Nenhuma tarefa identificada"
+            
+            return ChatResponse(response=response_text, tasks=created_tasks)
         else:
-            # Resposta normal
-            return ChatResponse(response=response_text)
+            return ChatResponse(response="\n".join(response_lines))
 
     except Exception as e:
         logger.error(f"Erro no chat: {str(e)}")
@@ -158,6 +173,20 @@ async def create_task(task: Task):
     logger.info(f"Criando nova tarefa: {task.dict()}")
     tasks.append(task.dict())
     return task
+
+@app.post("/api/tasks/bulk", response_model=List[Task])
+async def create_bulk_tasks(task_list: TaskList):
+    logger.info(f"Criando {len(task_list.tasks)} tarefas")
+    created_tasks = []
+    for title in task_list.tasks:
+        task = {
+            "id": len(tasks) + 1,
+            "title": title,
+            "completed": False
+        }
+        tasks.append(task)
+        created_tasks.append(task)
+    return created_tasks
 
 @app.put("/api/tasks/{task_id}", response_model=Task)
 async def update_task(task_id: int, task: Task):
